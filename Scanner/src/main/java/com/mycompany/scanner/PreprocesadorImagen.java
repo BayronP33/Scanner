@@ -7,15 +7,13 @@ package com.mycompany.scanner;
 
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.imgcodecs.Imgcodecs;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 
 public class PreprocesadorImagen {
-    
+
     static {
         try {
-            // Obtener ruta del archivo DLL dentro de src/main/resources/native-lib
             String rutaDLL = System.getProperty("user.dir") + "/src/main/resources/native-lib/opencv_java4110.dll";
             System.load(rutaDLL);
         } catch (UnsatisfiedLinkError e) {
@@ -23,26 +21,50 @@ public class PreprocesadorImagen {
         }
     }
 
+    // Parámetros ajustables
+    private static final double CLAHE_CLIP_LIMIT = 1.0;  //  2.0, 3.0, 4.0
+    private static final Size CLAHE_TILE_GRID = new Size(0, 0); //  (8,8) o (16,16)
+
+    private static final int BILATERAL_DIAMETER = 0;  //  5, 9, 12
+    private static final double BILATERAL_SIGMA_COLOR = 0; //  50, 75, 100
+    private static final double BILATERAL_SIGMA_SPACE = 0; //  50, 75, 100
+
+    private static final int THRESHOLD_TYPE = Imgproc.THRESH_BINARY_INV | Imgproc.THRESH_OTSU; 
+    // Imgproc.THRESH_BINARY_INV | Imgproc.THRESH_OTSU
+    // Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU 
+    // o Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C
+
     public BufferedImage procesarImagen(BufferedImage imagen) {
-        // Convertir BufferedImage a Mat
+        long startTime = System.currentTimeMillis();
+
         Mat imagenMat = bufferedImageToMat(imagen);
 
         // Convertir a escala de grises
-        Imgproc.cvtColor(imagenMat, imagenMat, Imgproc.COLOR_BGR2GRAY);
+        if (imagenMat.channels() > 1) {
+            Imgproc.cvtColor(imagenMat, imagenMat, Imgproc.COLOR_BGR2GRAY);
+        }
 
-        // Aplicar binarización (umbral adaptativo)
-        Imgproc.adaptiveThreshold(imagenMat, imagenMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 11, 2);
+        // Aplicar CLAHE
+        Mat claheMat = new Mat();
+        Imgproc.createCLAHE(CLAHE_CLIP_LIMIT, CLAHE_TILE_GRID).apply(imagenMat, claheMat);
 
-        // Reducir ruido con desenfoque gaussiano
-        Imgproc.GaussianBlur(imagenMat, imagenMat, new Size(3, 3), 0);
+        // Filtrado bilateral para reducción de ruido
+        Mat filtradaMat = new Mat();
+        Imgproc.bilateralFilter(claheMat, filtradaMat, BILATERAL_DIAMETER, BILATERAL_SIGMA_COLOR, BILATERAL_SIGMA_SPACE);
 
-        // Convertir Mat a BufferedImage
-        return matToBufferedImage(imagenMat);
+        // Aplicar umbralización
+        Mat binarizadaMat = new Mat();
+        Imgproc.threshold(filtradaMat, binarizadaMat, 0, 255, THRESHOLD_TYPE);
+
+        long endTime = System.currentTimeMillis();
+        System.out.println("Tiempo de procesamiento: " + (endTime - startTime) + " ms");
+
+        return matToBufferedImage(binarizadaMat);
     }
 
     private Mat bufferedImageToMat(BufferedImage imagen) {
         byte[] pixels = ((DataBufferByte) imagen.getRaster().getDataBuffer()).getData();
-        Mat mat = new Mat(imagen.getHeight(), imagen.getWidth(), CvType.CV_8UC3);
+        Mat mat = new Mat(imagen.getHeight(), imagen.getWidth(), CvType.CV_8UC1);
         mat.put(0, 0, pixels);
         return mat;
     }
@@ -56,3 +78,4 @@ public class PreprocesadorImagen {
         return imagen;
     }
 }
+

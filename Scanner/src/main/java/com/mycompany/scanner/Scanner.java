@@ -5,6 +5,8 @@
 package com.mycompany.scanner;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
 
 public class Scanner {
     public static void main(String[] args) {
@@ -13,9 +15,17 @@ public class Scanner {
         if (selector.seleccionarImagen()) { 
             BufferedImage imagenOriginal = selector.getImagen();
             
-            //  Preprocesa la imagen
+            // Preprocesar la imagen
             PreprocesadorImagen preprocesador = new PreprocesadorImagen();
             BufferedImage imagenProcesada = preprocesador.procesarImagen(imagenOriginal);
+
+            // Guardar la imagen preprocesada para depuración
+            try {
+                ImageIO.write(imagenProcesada, "png", new File("imagen_procesada.png"));
+                System.out.println("Imagen preprocesada guardada como 'imagen_procesada.png'");
+            } catch (Exception e) {
+                System.err.println("Error al guardar la imagen preprocesada: " + e.getMessage());
+            }
 
             // Extraer texto con OCR
             String textoExtraido = OCRExtractor.extraerTexto(imagenProcesada);
@@ -30,6 +40,7 @@ public class Scanner {
         }
     }
 }
+
 
 
 
